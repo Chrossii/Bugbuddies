@@ -8,10 +8,10 @@ const char* ssid = "alcoholusdehydrogenatus";
 const char* password = "123456788";
 
 // ---------- MQTT ----------
-const char* mqtt_server = "test.mosquitto.org";
+const char* mqtt_server = "192.168.137.46";
 const int mqtt_port = 1883;
 
-const char* topic_prefix = "smarthome_teamBugBuddys/";
+const char* topic_prefix = "smarthome_teamBugBuddies/";
 
 String t_light_set    = String(topic_prefix) + "home/livingroom/light/set";
 String t_light_state  = String(topic_prefix) + "home/livingroom/light/state";
