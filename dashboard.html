@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BugBuddys – Smart Home</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d1117;
+    --surface:   #161b27;
+    --surface2:  #1e2535;
+    --border:    #2a3347;
+    --accent:    #f59e0b;
+    --accent-dim:#7c4f07;
+    --green:     #22c55e;
+    --green-dim: #14532d;
+    --red:       #ef4444;
+    --blue:      #60a5fa;
+    --text:      #e2e8f0;
+    --muted:     #64748b;
+    --font-d:    'Space Grotesk', sans-serif;
+    --font-b:    'Inter', sans-serif;
+    --radius:    12px;
+    --glow-on:   0 0 24px rgba(245,158,11,0.35), 0 0 8px rgba(245,158,11,0.2);
+    --glow-green:0 0 20px rgba(34,197,94,0.3);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-b);
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    font-family: var(--font-d);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .logo span { color: var(--text); }
+
+  .status-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: var(--font-d);
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    transition: background 0.4s;
+    flex-shrink: 0;
+  }
+  .dot.connected { background: var(--green); box-shadow: 0 0 6px rgba(34,197,94,0.6); }
+
+  .gesture-pill {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 5px 14px;
+    font-size: 0.78rem;
+    font-family: var(--font-d);
+    color: var(--muted);
+  }
+  .gesture-pill .gesture-val {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 0.82rem;
+    min-width: 90px;
+  }
+
+  /* ── MAIN GRID ── */
+  main {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 16px;
+    align-content: start;
+  }
+
+  /* ── ROOM CARDS ── */
+  .room-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: box-shadow 0.4s, border-color 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+  .room-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    opacity: 0;
+    transition: opacity 0.4s;
+    pointer-events: none;
+  }
+  .room-card.glow-amber { box-shadow: var(--glow-on); border-color: var(--accent-dim); }
+  .room-card.glow-amber::before { background: radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 70%); opacity: 1; }
+  .room-card.glow-green { box-shadow: var(--glow-green); border-color: #14532d; }
+
+  .room-card.wide { grid-column: span 2; }
+  .room-card.full { grid-column: span 3; }
+
+  .room-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .room-icon {
+    width: 36px; height: 36px;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .room-title {
+    font-family: var(--font-d);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .room-subtitle {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+
+  /* ── CONTROLS ── */
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--surface2);
+    border-radius: 9px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+  }
+  .control-label {
+    font-size: 0.82rem;
+    color: var(--muted);
+    font-family: var(--font-d);
+  }
+
+  /* Toggle Switch */
+  .toggle-wrap { display: flex; align-items: center; gap: 10px; }
+  .state-badge {
+    font-size: 0.75rem;
+    font-family: var(--font-d);
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+    min-width: 52px;
+    text-align: center;
+  }
+  .state-badge.on { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-dim); }
+  .state-badge.open { background: var(--green-dim); color: var(--green); border-color: var(--green-dim); }
+
+  .toggle {
+    position: relative;
+    width: 44px; height: 24px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute;
+    inset: 0;
+    background: var(--border);
+    border-radius: 999px;
+    transition: background 0.3s;
+  }
+  .toggle-slider::after {
+    content: '';
+    position: absolute;
+    width: 18px; height: 18px;
+    left: 3px; top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.3s;
+  }
+  .toggle input:checked ~ .toggle-slider { background: var(--accent); }
+  .toggle input:checked ~ .toggle-slider::after { transform: translateX(20px); }
+  .toggle.blinds input:checked ~ .toggle-slider { background: var(--green); }
+
+  /* ── SENSOR VALUES ── */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .sensor-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .sensor-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: var(--font-d);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .sensor-value {
+    font-family: var(--font-d);
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .sensor-value .unit {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  /* ── PIR ── */
+  .pir-indicator {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 14px 16px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .pir-indicator.motion {
+    border-color: var(--red);
+    background: rgba(239,68,68,0.08);
+  }
+  .pir-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .pir-indicator.motion .pir-dot {
+    background: var(--red);
+    box-shadow: 0 0 10px rgba(239,68,68,0.7);
+    animation: pulse-red 1s infinite;
+  }
+  @keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.7); }
+    50%       { box-shadow: 0 0 18px rgba(239,68,68,0.9); }
+  }
+  .pir-text {
+    font-family: var(--font-d);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .pir-indicator.motion .pir-text { color: var(--red); }
+
+  /* ── BUTTON STATE ── */
+  .btn-state-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 12px 14px;
+  }
+  .btn-badge {
+    font-family: var(--font-d);
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+  }
+  .btn-badge.pressed { background: rgba(96,165,250,0.15); color: var(--blue); border-color: #1e3a5f; }
+
+  /* ── LOG ── */
+  .log-card { grid-column: span 3; }
+  .log-inner {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 10px;
+    height: 120px;
+    overflow-y: auto;
+    font-family: 'Courier New', monospace;
+    font-size: 0.72rem;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 2px;
+  }
+  .log-line { color: var(--muted); line-height: 1.5; }
+  .log-line .ts { color: #374151; }
+  .log-line .topic { color: var(--blue); }
+  .log-line .val { color: var(--accent); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+  .broker-info { font-family: var(--font-d); }
+  .broker-info span { color: var(--text); }
+
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; }
+    .room-card.wide, .room-card.full, .log-card { grid-column: span 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Bug<span>Buddys</span> · Smart Home</div>
+  <div class="status-pill">
+    <div class="dot" id="connDot"></div>
+    <span id="connLabel">Verbinde…</span>
+  </div>
+  <div class="gesture-pill">
+    ✋ Letzte Geste: <span class="gesture-val" id="gestureVal">–</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Wohnzimmer: Licht + Rollo -->
+  <div class="room-card wide" id="card-living">
+    <div class="room-header">
+      <div class="room-icon">🛋️</div>
+      <div>
+        <div class="room-title">Wohnzimmer</div>
+        <div class="room-subtitle">Licht &amp; Rollo</div>
+      </div>
+    </div>
+
+    <div class="control-row">
+      <div class="control-label">Licht</div>
+      <div class="toggle-wrap">
+        <span class="state-badge" id="lightBadge">AUS</span>
+        <label class="toggle">
+          <input type="checkbox" id="lightToggle" onchange="toggleLight(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-row">
+      <div class="control-label">Rollo</div>
+      <div class="toggle-wrap">
+        <span class="state-badge" id="blindsBadge">GESCHLOSSEN</span>
+        <label class="toggle blinds">
+          <input type="checkbox" id="blindsToggle" onchange="toggleBlinds(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schlafzimmer: PIR + Taster -->
+  <div class="room-card" id="card-bedroom">
+    <div class="room-header">
+      <div class="room-icon">🛏️</div>
+      <div>
+        <div class="room-title">Schlafzimmer</div>
+        <div class="room-subtitle">Bewegungsmelder &amp; Taster</div>
+      </div>
+    </div>
+
+    <div class="pir-indicator" id="pirIndicator">
+      <div class="pir-dot"></div>
+      <span class="pir-text">Keine Bewegung</span>
+    </div>
+
+    <div class="btn-state-box">
+      <div class="control-label">Taster</div>
+      <span class="btn-badge" id="btnBadge">OFFEN</span>
+    </div>
+  </div>
+
+  <!-- Küche: Temp + Humidity -->
+  <div class="room-card" id="card-kitchen">
+    <div class="room-header">
+      <div class="room-icon">🍳</div>
+      <div>
+        <div class="room-title">Küche</div>
+        <div class="room-subtitle">DHT22 Sensorwerte</div>
+      </div>
+    </div>
+    <div class="sensor-grid">
+      <div class="sensor-box">
+        <div class="sensor-label">Temperatur</div>
+        <div class="sensor-value" id="tempVal">–<span class="unit">°C</span></div>
+      </div>
+      <div class="sensor-box">
+        <div class="sensor-label">Luftfeuchte</div>
+        <div class="sensor-value" id="humVal">–<span class="unit">%</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="room-card log-card">
+    <div class="room-header">
+      <div class="room-icon">📋</div>
+      <div>
+        <div class="room-title">MQTT-Ereignislog</div>
+        <div class="room-subtitle">Eingehende Nachrichten in Echtzeit</div>
+      </div>
+    </div>
+    <div class="log-inner" id="logBox"></div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="broker-info">Broker: <span>ws://localhost:9001</span></div>
+  <div class="broker-info">Präfix: <span>smarthome_teamBugBuddies/</span></div>
+</footer>
+
+<script>
+  const PREFIX = "smarthome_teamBugBuddies/";
+  const T = {
+    light_state:  PREFIX + "home/livingroom/light/state",
+    light_set:    PREFIX + "home/livingroom/light/set",
+    blinds_state: PREFIX + "home/livingroom/blinds/state",
+    blinds_set:   PREFIX + "home/livingroom/blinds/set",
+    temperature:  PREFIX + "home/kitchen/temperature",
+    humidity:     PREFIX + "home/kitchen/humidity",
+    pir:          PREFIX + "home/bedroom/pir",
+    button:       PREFIX + "home/button",
+    gesture:      PREFIX + "home/gesture",
+  };
+
+  const client = mqtt.connect("ws://localhost:9001");
+
+  client.on("connect", () => {
+    document.getElementById("connDot").classList.add("connected");
+    document.getElementById("connLabel").textContent = "Verbunden";
+    Object.values(T).forEach(t => client.subscribe(t));
+    addLog("system", "Verbunden mit ws://localhost:9001");
+  });
+
+  client.on("error", (e) => {
+    document.getElementById("connLabel").textContent = "Verbindungsfehler";
+    addLog("system", "Fehler: " + e.message);
+  });
+
+  client.on("close", () => {
+    document.getElementById("connDot").classList.remove("connected");
+    document.getElementById("connLabel").textContent = "Getrennt";
+  });
+
+  client.on("message", (topic, payload) => {
+    const msg = payload.toString().trim();
+    addLog(topic.replace(PREFIX, ""), msg);
+
+    if (topic === T.light_state)  updateLight(msg === "ON");
+    if (topic === T.blinds_state) updateBlinds(msg === "OPEN");
+    if (topic === T.temperature)  document.getElementById("tempVal").innerHTML = msg + '<span class="unit">°C</span>';
+    if (topic === T.humidity)     document.getElementById("humVal").innerHTML  = msg + '<span class="unit">%</span>';
+    if (topic === T.pir)          updatePir(msg === "MOTION");
+    if (topic === T.button)       updateButton(msg);
+    if (topic === T.gesture)      updateGesture(msg);
+  });
+
+  // ── Licht ──
+  function updateLight(on) {
+    document.getElementById("lightToggle").checked = on;
+    const badge = document.getElementById("lightBadge");
+    badge.textContent = on ? "AN" : "AUS";
+    badge.className = "state-badge" + (on ? " on" : "");
+    const card = document.getElementById("card-living");
+    card.classList.toggle("glow-amber", on);
+  }
+
+  function toggleLight(on) {
+    client.publish(T.light_set, on ? "ON" : "OFF");
+  }
+
+  // ── Rollo ──
+  function updateBlinds(open) {
+    document.getElementById("blindsToggle").checked = open;
+    const badge = document.getElementById("blindsBadge");
+    badge.textContent = open ? "OFFEN" : "GESCHLOSSEN";
+    badge.className = "state-badge" + (open ? " open" : "");
+  }
+
+  function toggleBlinds(open) {
+    client.publish(T.blinds_set, open ? "OPEN" : "CLOSED");
+  }
+
+  // ── PIR ──
+  function updatePir(motion) {
+    const el = document.getElementById("pirIndicator");
+    el.className = "pir-indicator" + (motion ? " motion" : "");
+    el.querySelector(".pir-text").textContent = motion ? "Bewegung erkannt!" : "Keine Bewegung";
+    document.getElementById("card-bedroom").classList.toggle("glow-green", motion);
+  }
+
+  // ── Taster ──
+  function updateButton(state) {
+    const badge = document.getElementById("btnBadge");
+    const pressed = state === "PRESSED";
+    badge.textContent = pressed ? "GEDRÜCKT" : "OFFEN";
+    badge.className = "btn-badge" + (pressed ? " pressed" : "");
+  }
+
+  // ── Geste ──
+  const gestureEmoji = {
+    open_hand: "🖐️ open_hand",
+    fist:      "✊ fist",
+    thumbs_up: "👍 thumbs_up",
+    peace:     "✌️ peace",
+    pointing:  "☝️ pointing",
+  };
+  function updateGesture(g) {
+    document.getElementById("gestureVal").textContent = gestureEmoji[g] || g;
+  }
+
+  // ── Log ──
+  function addLog(topic, value) {
+    const box = document.getElementById("logBox");
+    const now = new Date().toLocaleTimeString("de-DE");
+    const line = document.createElement("div");
+    line.className = "log-line";
+    line.innerHTML = `<span class="ts">${now}</span>  <span class="topic">${topic}</span>  →  <span class="val">${value}</span>`;
+    box.prepend(line);
+    if (box.children.length > 100) box.lastElementChild.remove();
+  }
+</script>
+</body>
+</html>
