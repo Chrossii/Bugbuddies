@@ -4,12 +4,12 @@ import paho.mqtt.client as mqtt
 import time
 
 # --- Konfiguration ---
-MQTT_BROKER = "localhost"   # lokaler broker, z.B. Mosquitto auf lokalen Rechner
+MQTT_BROKER = "192.168.137.171"   # lokaler broker, z.B. Mosquitto auf lokalen Rechner
 MQTT_PORT = 1883
 
 # Muss exakt mit dem Präfix im ESP32-Sketch übereinstimmen, sonst sehen
 # sich Publisher und Subscriber auf dem öffentlichen Broker nicht!
-TOPIC_PREFIX = "smarthome_teamBugBuddyies/"
+TOPIC_PREFIX = "smarthome_teamBugBuddies/"
 MQTT_TOPIC = TOPIC_PREFIX + "home/gesture"
 
 PUBLISH_INTERVAL = 0.5      # Sekunden, verhindert Topic-Spam bei gleicher Geste
