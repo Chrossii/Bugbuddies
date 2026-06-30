@@ -4,7 +4,7 @@ import paho.mqtt.client as mqtt
 import time
 
 # --- Konfiguration ---
-MQTT_BROKER = "192.168.137.171"   # lokaler broker, z.B. Mosquitto auf lokalen Rechner
+MQTT_BROKER = "192.168.178.24"   # lokaler broker, z.B. Mosquitto auf lokalen Rechner
 MQTT_PORT = 1883
 
 # Muss exakt mit dem Präfix im ESP32-Sketch übereinstimmen, sonst sehen
