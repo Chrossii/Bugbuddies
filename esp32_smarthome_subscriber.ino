@@ -4,11 +4,11 @@
 #include <ESP32Servo.h>
  
 // ---------- WLAN ----------
-const char* ssid = "alcoholusdehydrogenatus";
-const char* password = "123456788";
+const char* ssid = "De MorganLANd";
+const char* password = "Ki30Si05";
  
 // ---------- MQTT ----------
-const char* mqtt_server = "192.168.137.171";
+const char* mqtt_server = "192.168.178.24";
 const int mqtt_port = 1883;
  
 const char* topic_prefix = "smarthome_teamBugBuddies/";
